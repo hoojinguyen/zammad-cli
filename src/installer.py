@@ -243,10 +243,10 @@ def run_installation(custom_env_file=None):
         try:
             log_step("Starting Zammad Docker container stack...")
             try:
-                run_command(["docker", "compose", "down", "-v", "--remove-orphans"])
+                run_command(["docker", "compose", "down", "-v", "--remove-orphans"], show_output=True)
             except Exception:
                 pass
-            run_command(["docker", "compose", "up", "-d"])
+            run_command(["docker", "compose", "up", "-d"], show_output=True)
             reports.append(("Start Zammad Containers", "SUCCESS", "All services active"))
         except Exception as e:
             reports.append(("Start Zammad Containers", "FAILED", str(e)))

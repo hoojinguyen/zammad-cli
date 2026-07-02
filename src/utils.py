@@ -74,10 +74,11 @@ def check_docker_permission_error(output_str):
         log_warn("DOCKER SOCKET ACCESS DENIED: Your current shell session does not have permission to access Docker.")
         log_warn("Please run 'newgrp docker' in your terminal, or log out and log back in, to apply group changes.")
 
-def run_command(cmd, cwd=None, shell=False, capture_output=False):
+def run_command(cmd, cwd=None, shell=False, capture_output=False, show_output=False):
     """
     Executes a shell command. Logs all output to the installation log file in real-time.
     If capture_output is True, returns (stdout, stderr).
+    If show_output is True, streams the output in real-time to stdout.
     If the command exits with non-zero status, raises a subprocess.CalledProcessError.
     """
     logging.info(f"Running command: {cmd if isinstance(cmd, str) else ' '.join(cmd)} (cwd={cwd})")
@@ -125,6 +126,9 @@ def run_command(cmd, cwd=None, shell=False, capture_output=False):
             stripped = line.rstrip('\n')
             logging.info(f"[CMD] {stripped}")
             output_lines.append(stripped)
+            if show_output:
+                print(stripped)
+                sys.stdout.flush()
             
     p.wait()
     
