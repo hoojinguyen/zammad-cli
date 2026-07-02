@@ -146,3 +146,63 @@ def restore_db(backup_file):
         log_info("Database restored successfully.")
     except subprocess.CalledProcessError as e:
         log_error(f"Failed to restore database: {e}")
+
+def show_env_config():
+    """Prints all active (uncommented) configuration settings in the .env file."""
+    try:
+        config_data = parse_config_env()
+    except Exception as e:
+        log_error(str(e))
+        return
+        
+    print(f"\n{Colors.BOLD}===================================================={Colors.NC}")
+    print(f"{Colors.BOLD}            Zammad Active Configurations            {Colors.NC}")
+    print(f"{Colors.BOLD}===================================================={Colors.NC}")
+    for key, val in sorted(config_data.items()):
+        if "PASS" in key or "SECRET" in key:
+            val_masked = val[:3] + "*" * (len(val) - 3) if len(val) > 3 else "*" * len(val)
+            print(f"  {key:<25}: {Colors.YELLOW}{val_masked}{Colors.NC}")
+        else:
+            print(f"  {key:<25}: {Colors.GREEN}{val}{Colors.NC}")
+    print(f"{Colors.BOLD}===================================================={Colors.NC}\n")
+
+def set_env_variable(key, value):
+    """Sets a variable in the .env file, updating it if it exists or appending it."""
+    install_dir = get_install_dir()
+    env_path = os.path.join(install_dir, ".env")
+    if not os.path.exists(env_path):
+        log_error(f".env not found in {install_dir}. Please run install first.")
+        return
+        
+    key_upper = key.upper()
+    key_map = {
+        "PORT": "NGINX_EXPOSE_PORT",
+        "DB_USER": "POSTGRES_USER",
+        "DB_PASS": "POSTGRES_PASS",
+        "DB_NAME": "POSTGRES_DB"
+    }
+    target_key = key_map.get(key_upper, key_upper)
+    
+    with open(env_path, "r") as f:
+        lines = f.readlines()
+        
+    updated = False
+    new_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(f"{target_key}=") or stripped.startswith(f"# {target_key}=") or stripped.startswith(f"#  {target_key}="):
+            new_lines.append(f"{target_key}={value}\n")
+            updated = True
+        else:
+            new_lines.append(line)
+            
+    if not updated:
+        new_lines.append(f"\n{target_key}={value}\n")
+        
+    try:
+        with open(env_path, "w") as f:
+            f.writelines(new_lines)
+        print(f"Successfully set {Colors.CYAN}{target_key}{Colors.NC} to {Colors.GREEN}{value}{Colors.NC} in .env.")
+        print(f"Please restart Zammad services ({Colors.BOLD}zammad restart{Colors.NC}) to apply changes.")
+    except Exception as e:
+        log_error(f"Failed to update .env file: {e}")
