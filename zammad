@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Zammad CLI Controller Wrapper
+
+set -e
+
+# Resolve the actual source directory of this script, even if run through a symlink
+TARGET_FILE="${BASH_SOURCE[0]}"
+while [ -h "$TARGET_FILE" ]; do
+  TARGET_DIR="$(cd -P "$(dirname "$TARGET_FILE")" && pwd)"
+  TARGET_FILE="$(readlink "$TARGET_FILE")"
+  [[ $TARGET_FILE != /* ]] && TARGET_FILE="$TARGET_DIR/$TARGET_FILE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$TARGET_FILE")" && pwd)"
+
+# Ensure proper utf-8 encoding for Python outputs
+export PYTHONIOENCODING=utf-8
+export PYTHONPATH="${SCRIPT_DIR}:${PYTHONPATH:-}"
+
+# Detect if the current user has write access to Docker socket. If not, auto-elevate using sudo.
+if [ "$EUID" -ne 0 ] && [ -S /var/run/docker.sock ] && [ ! -w /var/run/docker.sock ]; then
+  YELLOW='\033[1;33m'
+  NC='\033[0m'
+  echo -e "${YELLOW}Note: Current user lacks write permissions for Docker socket. Elevating via sudo...${NC}"
+  exec sudo PYTHONPATH="${PYTHONPATH}" PYTHONIOENCODING="${PYTHONIOENCODING}" python3 "${SCRIPT_DIR}/src/cli.py" "$@"
+else
+  # Execute CLI entry point, forwarding all arguments
+  exec python3 "${SCRIPT_DIR}/src/cli.py" "$@"
+fi
