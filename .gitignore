@@ -1,0 +1,22 @@
+# Log files
+zammad-install.log
+log.txt
+
+# Environment configurations
+.env
+
+# Backups and old scripts
+backups/
+*.sql
+*.tar.gz
+manage.sh.bak
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Operating system files
+.DS_Store
+Thumbs.db
