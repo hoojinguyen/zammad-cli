@@ -54,13 +54,14 @@ def run_interactive_menu():
         print("  11) Backup Zammad Volumes (Full Stack Backup)")
         print("  12) List Volume Backups")
         print("  13) Restore Zammad Volumes (Full Stack Restore)")
-        print("  14) Run Health Checks")
-        print("  15) Uninstall Zammad Stack")
-        print("  16) Exit Control Center")
+        print("  14) View Active Configuration Settings")
+        print("  15) Run Health Checks")
+        print("  16) Uninstall Zammad Stack")
+        print("  17) Exit Control Center")
         print(f"{Colors.BOLD}{Colors.CYAN}===================================================={Colors.NC}")
         
         try:
-            choice = input(f"{Colors.BOLD}Enter choice [1-16]: {Colors.NC}").strip()
+            choice = input(f"{Colors.BOLD}Enter choice [1-17]: {Colors.NC}").strip()
             
             if choice == "1":
                 run_installation()
@@ -97,14 +98,17 @@ def run_interactive_menu():
                 else:
                     print("No backup file provided.")
             elif choice == "14":
-                health_check()
+                from src.db import show_env_config
+                show_env_config()
             elif choice == "15":
+                health_check()
+            elif choice == "16":
                 uninstall_zammad()
-            elif choice == "16" or choice.lower() in ["exit", "q", "quit"]:
+            elif choice == "17" or choice.lower() in ["exit", "q", "quit"]:
                 print(f"\n{Colors.GREEN}Goodbye!{Colors.NC}\n")
                 break
             else:
-                print(f"\n{Colors.RED}Invalid option, please choose between 1 and 16.{Colors.NC}")
+                print(f"\n{Colors.RED}Invalid option, please choose between 1 and 17.{Colors.NC}")
                 
             input(f"\n{Colors.YELLOW}Press Enter to return to menu...{Colors.NC}")
             
@@ -125,7 +129,8 @@ def main():
     subparsers = parser.add_subparsers(dest="command", help="Management Subcommands")
     
     # install
-    subparsers.add_parser("install", help="Install Zammad stack and setup environment.")
+    install_parser = subparsers.add_parser("install", help="Install Zammad stack and setup environment.")
+    install_parser.add_argument("--env-file", default=None, help="Path to custom environment configuration seed file.")
     
     # start
     subparsers.add_parser("start", help="Start the Zammad containers.")
@@ -165,6 +170,15 @@ def main():
     backup_rst_parser = backup_sub.add_parser("restore", help="Restore full volumes from backup.")
     backup_rst_parser.add_argument("file", help="Filename of the volume backup.")
     
+    # config subparser
+    config_parser = subparsers.add_parser("config", help="Manage configuration variables in .env.")
+    config_sub = config_parser.add_subparsers(dest="config_command", help="Configuration Commands")
+    config_sub.add_parser("show", help="Show active configuration variables from .env.")
+    
+    config_set_parser = config_sub.add_parser("set", help="Set a configuration variable in .env.")
+    config_set_parser.add_argument("key", help="The configuration key (e.g. port, db_user, db_pass, db_name, or custom)")
+    config_set_parser.add_argument("value", help="The configuration value to assign")
+    
     # health
     subparsers.add_parser("health", help="Run Zammad health checks.")
     
@@ -181,7 +195,7 @@ def main():
     
     try:
         if args.command == "install":
-            run_installation()
+            run_installation(custom_env_file=args.env_file)
         elif args.command == "uninstall":
             uninstall_zammad()
         elif args.command == "start":
@@ -216,6 +230,15 @@ def main():
                 restore_volumes(args.file)
             else:
                 backup_parser.print_help()
+        elif args.command == "config":
+            if args.config_command == "show":
+                from src.db import show_env_config
+                show_env_config()
+            elif args.config_command == "set":
+                from src.db import set_env_variable
+                set_env_variable(args.key, args.value)
+            else:
+                config_parser.print_help()
         else:
             parser.print_help()
             
