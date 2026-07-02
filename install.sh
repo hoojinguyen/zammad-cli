@@ -9,6 +9,22 @@ RED='\033[0;31m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Parse options
+CUSTOM_ENV_FILE=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --env-file)
+            CUSTOM_ENV_FILE="$2"
+            shift 2
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            echo "Usage: ./install.sh [--env-file <custom-env-file-path>]"
+            exit 1
+            ;;
+    esac
+done
+
 # ==============================================================================
 # CONFIGURATION VARIABLES (Edit here to change dependencies / requirements)
 # ==============================================================================
@@ -249,7 +265,18 @@ fi
 
 # Invoke Python Installer
 echo -e "\n${YELLOW}[4/4] Invoking Zammad CLI Python Installer...${NC}" | tee -a "$LOG_FILE"
-if "${RUN_DIR}/zammad" install; then
+INSTALL_CMD=("${RUN_DIR}/zammad" "install")
+if [ -n "$CUSTOM_ENV_FILE" ]; then
+    if [[ "$CUSTOM_ENV_FILE" = /* ]]; then
+        ABS_ENV_FILE="$CUSTOM_ENV_FILE"
+    else
+        ABS_ENV_FILE="$(pwd)/$CUSTOM_ENV_FILE"
+    fi
+    INSTALL_CMD+=("--env-file" "$ABS_ENV_FILE")
+    echo "Using custom configuration seed file: $ABS_ENV_FILE" | tee -a "$LOG_FILE"
+fi
+
+if "${INSTALL_CMD[@]}"; then
     ZAMMAD_INSTALL="SUCCESS"
 else
     ZAMMAD_INSTALL="FAILED"
