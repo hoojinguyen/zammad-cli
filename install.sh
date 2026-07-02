@@ -263,6 +263,24 @@ else
     RUN_DIR="${SCRIPT_DIR}"
 fi
 
+# Create global symlink
+SYMLINK_CHECK="SKIPPED"
+if [ -d /usr/local/bin ] && [ ! -f /usr/local/bin/zammad ]; then
+    if [ "$OS_TYPE" = "Linux" ]; then
+        if ln -sf "/opt/zammad-docker/zammad" /usr/local/bin/zammad 2>&1 | tee -a "$LOG_FILE"; then
+            SYMLINK_CHECK="SUCCESS"
+        else
+            SYMLINK_CHECK="FAILED"
+        fi
+    elif [ "$OS_TYPE" = "Darwin" ]; then
+        if ln -sf "${SCRIPT_DIR}/zammad" /usr/local/bin/zammad 2>/dev/null; then
+            SYMLINK_CHECK="SUCCESS"
+        else
+            SYMLINK_CHECK="SKIPPED"
+        fi
+    fi
+fi
+
 # Invoke Python Installer
 echo -e "\n${YELLOW}[4/4] Invoking Zammad CLI Python Installer...${NC}" | tee -a "$LOG_FILE"
 INSTALL_CMD=("${RUN_DIR}/zammad" "install")
@@ -283,24 +301,6 @@ else
     echo -e "${RED}Error: Python installer execution failed.${NC}" | tee -a "$LOG_FILE"
     print_bootstrap_summary
     exit 1
-fi
-
-# Create global symlink
-SYMLINK_CHECK="SKIPPED"
-if [ -d /usr/local/bin ] && [ ! -f /usr/local/bin/zammad ]; then
-    if [ "$OS_TYPE" = "Linux" ]; then
-        if ln -sf "/opt/zammad-docker/zammad" /usr/local/bin/zammad 2>&1 | tee -a "$LOG_FILE"; then
-            SYMLINK_CHECK="SUCCESS"
-        else
-            SYMLINK_CHECK="FAILED"
-        fi
-    elif [ "$OS_TYPE" = "Darwin" ]; then
-        if ln -sf "${SCRIPT_DIR}/zammad" /usr/local/bin/zammad 2>/dev/null; then
-            SYMLINK_CHECK="SUCCESS"
-        else
-            SYMLINK_CHECK="SKIPPED"
-        fi
-    fi
 fi
 
 # Print final bootstrap report

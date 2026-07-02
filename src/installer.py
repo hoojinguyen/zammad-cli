@@ -242,10 +242,8 @@ def run_installation(custom_env_file=None):
         # 6. Start containers
         try:
             log_step("Starting Zammad Docker container stack...")
-            try:
-                run_command(["docker", "compose", "down", "-v", "--remove-orphans"], show_output=True)
-            except Exception:
-                pass
+            # We only run compose up -d to boot the containers.
+            # Running compose down -v is avoided during installation as it wipes databases and data.
             run_command(["docker", "compose", "up", "-d"], show_output=True)
             reports.append(("Start Zammad Containers", "SUCCESS", "All services active"))
         except Exception as e:
