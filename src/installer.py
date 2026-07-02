@@ -89,7 +89,7 @@ def print_installation_report(reports):
     else:
         log_info("Zammad installation completed successfully. Services are starting!")
 
-def run_installation():
+def run_installation(custom_env_file=None):
     """Main installer orchestration workflow."""
     install_dir = get_install_dir()
     log_step(f"Starting Zammad installation in {install_dir}")
@@ -156,75 +156,88 @@ def run_installation():
         env_path = os.path.join(install_dir, ".env")
         env_dist_path = os.path.join(install_dir, ".env.dist")
         
-        # If .env exists but is empty or missing POSTGRES_PASS, wipe and regenerate
-        if os.path.exists(env_path):
-            with open(env_path, "r") as f:
-                content = f.read()
-            if "POSTGRES_PASS=" in content and ("POSTGRES_PASS=\n" in content or content.endswith("POSTGRES_PASS=")):
-                log_warn("Detected .env with empty POSTGRES_PASS. Re-generating...")
-                os.remove(env_path)
-                
-        if not os.path.exists(env_path):
+        # Override with custom env file if provided
+        if custom_env_file:
+            if not os.path.exists(custom_env_file):
+                raise FileNotFoundError(f"Custom environment file not found: {custom_env_file}")
+            log_info(f"Using custom configuration seed file: {custom_env_file}")
             try:
-                shutil.copyfile(env_dist_path, env_path)
-                
-                # Generate credentials
-                alphabet = string.ascii_letters + string.digits
-                db_password = ''.join(secrets.choice(alphabet) for _ in range(24))
-                db_user = config.DB_DEFAULT_USER
-                
-                # Port Collision Check: scan ports starting from configured default
-                web_port = config.DEFAULT_WEB_PORT
-                while is_port_in_use(web_port):
-                    log_warn(f"Port {web_port} is already in use on the host.")
-                    web_port += 1
-                
-                log_info(f"Port checking complete. Selecting host port {web_port} for Zammad web interface.")
-                
-                with open(env_path, "r") as f:
-                    lines = f.readlines()
-                    
-                new_lines = []
-                for line in lines:
-                    if line.startswith("POSTGRES_PASS="):
-                        new_lines.append(f"POSTGRES_PASS={db_password}\n")
-                    elif line.startswith("POSTGRES_USER="):
-                        new_lines.append(f"POSTGRES_USER={db_user}\n")
-                    elif line.startswith("NGINX_PORT="):
-                        new_lines.append(f"NGINX_PORT={config.DEFAULT_WEB_PORT}\n")
-                    elif line.startswith("NGINX_EXPOSE_PORT="):
-                        new_lines.append(f"NGINX_EXPOSE_PORT={web_port}\n")
-                    else:
-                        # Handle commented defaults
-                        if line.strip().startswith("# POSTGRES_PASS="):
-                            new_lines.append(f"POSTGRES_PASS={db_password}\n")
-                        elif line.strip().startswith("# POSTGRES_USER="):
-                            new_lines.append(f"POSTGRES_USER={db_user}\n")
-                        elif line.strip().startswith("# NGINX_PORT="):
-                            new_lines.append(f"NGINX_PORT={config.DEFAULT_WEB_PORT}\n")
-                        elif line.strip().startswith("# NGINX_EXPOSE_PORT="):
-                            new_lines.append(f"NGINX_EXPOSE_PORT={web_port}\n")
-                        else:
-                            new_lines.append(line)
-                            
-                with open(env_path, "w") as f:
-                    f.writelines(new_lines)
-                    
-                reports.append(("Generate .env & DB Passwords", "SUCCESS", f"Web Port: {web_port}"))
+                shutil.copyfile(custom_env_file, env_path)
+                reports.append(("Generate .env & DB Passwords", "SUCCESS", "Custom env file applied"))
             except Exception as e:
-                reports.append(("Generate .env & DB Passwords", "FAILED", str(e)))
+                reports.append(("Generate .env & DB Passwords", "FAILED", f"Failed to apply custom env: {e}"))
                 raise e
         else:
-            # Check if port in existing .env is currently in use
-            try:
-                from src.db import parse_config_env
-                cfg = parse_config_env()
-                configured_port = int(cfg.get("NGINX_EXPOSE_PORT", config.DEFAULT_WEB_PORT))
-                if is_port_in_use(configured_port):
-                    log_warn(f"WARNING: Port {configured_port} configured in .env is currently in use! Startup might fail.")
-                reports.append(("Generate .env & DB Passwords", "SKIPPED", f"Existing .env checked (Port: {configured_port})"))
-            except Exception:
+            # If .env exists but is empty or missing POSTGRES_PASS, wipe and regenerate
+            if os.path.exists(env_path):
+                with open(env_path, "r") as f:
+                    content = f.read()
+                if "POSTGRES_PASS=" in content and ("POSTGRES_PASS=\n" in content or content.endswith("POSTGRES_PASS=")):
+                    log_warn("Detected .env with empty POSTGRES_PASS. Re-generating...")
+                    os.remove(env_path)
+                    
+            if not os.path.exists(env_path):
+                try:
+                    shutil.copyfile(env_dist_path, env_path)
+                    
+                    # Generate credentials
+                    alphabet = string.ascii_letters + string.digits
+                    db_password = ''.join(secrets.choice(alphabet) for _ in range(24))
+                    db_user = config.DB_DEFAULT_USER
+                    
+                    # Port Collision Check: scan ports starting from configured default
+                    web_port = config.DEFAULT_WEB_PORT
+                    while is_port_in_use(web_port):
+                        log_warn(f"Port {web_port} is already in use on the host.")
+                        web_port += 1
+                    
+                    log_info(f"Port checking complete. Selecting host port {web_port} for Zammad web interface.")
+                    
+                    with open(env_path, "r") as f:
+                        lines = f.readlines()
+                        
+                    new_lines = []
+                    for line in lines:
+                        if line.startswith("POSTGRES_PASS="):
+                            new_lines.append(f"POSTGRES_PASS={db_password}\n")
+                        elif line.startswith("POSTGRES_USER="):
+                            new_lines.append(f"POSTGRES_USER={db_user}\n")
+                        elif line.startswith("NGINX_PORT="):
+                            new_lines.append(f"NGINX_PORT={config.DEFAULT_WEB_PORT}\n")
+                        elif line.startswith("NGINX_EXPOSE_PORT="):
+                            new_lines.append(f"NGINX_EXPOSE_PORT={web_port}\n")
+                        else:
+                            # Handle commented defaults
+                            if line.strip().startswith("# POSTGRES_PASS="):
+                                new_lines.append(f"POSTGRES_PASS={db_password}\n")
+                            elif line.strip().startswith("# POSTGRES_USER="):
+                                new_lines.append(f"POSTGRES_USER={db_user}\n")
+                            elif line.strip().startswith("# NGINX_PORT="):
+                                new_lines.append(f"NGINX_PORT={config.DEFAULT_WEB_PORT}\n")
+                            elif line.strip().startswith("# NGINX_EXPOSE_PORT="):
+                                new_lines.append(f"NGINX_EXPOSE_PORT={web_port}\n")
+                            else:
+                                new_lines.append(line)
+                                
+                    with open(env_path, "w") as f:
+                        f.writelines(new_lines)
+                        
+                    reports.append(("Generate .env & DB Passwords", "SUCCESS", f"Web Port: {web_port}"))
+                except Exception as e:
+                    reports.append(("Generate .env & DB Passwords", "FAILED", str(e)))
+                    raise e
+            else:
                 reports.append(("Generate .env & DB Passwords", "SKIPPED", ".env already exists"))
+
+        # Verify whether the configured port is currently in use on host
+        try:
+            from src.db import parse_config_env
+            cfg = parse_config_env()
+            configured_port = int(cfg.get("NGINX_EXPOSE_PORT", config.DEFAULT_WEB_PORT))
+            if is_port_in_use(configured_port):
+                log_warn(f"WARNING: Port {configured_port} configured in .env is currently in use on the host! Startup might fail.")
+        except Exception:
+            pass
 
         # 6. Start containers
         try:
